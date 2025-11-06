@@ -1,8 +1,9 @@
 import React from 'react';
 import { LayoutGrid, Home, Settings, ListChecks, Users, BarChart3 } from 'lucide-react';
 
-const NavItem = ({ icon: Icon, label, active = false }) => (
+const NavItem = ({ icon: Icon, label, active = false, onClick }) => (
   <button
+    onClick={onClick}
     className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition 
       ${active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
   >
@@ -11,18 +12,18 @@ const NavItem = ({ icon: Icon, label, active = false }) => (
   </button>
 );
 
-const Sidebar = () => {
+const Sidebar = ({ activePage, onNavigate }) => {
   return (
     <aside className="hidden md:flex md:w-64 shrink-0 border-r border-slate-200 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="w-full h-full p-4 space-y-6">
         <div>
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-3 mb-2">Main</div>
           <nav className="space-y-1">
-            <NavItem icon={Home} label="Overview" />
-            <NavItem icon={LayoutGrid} label="Board" active />
-            <NavItem icon={ListChecks} label="Backlog" />
-            <NavItem icon={Users} label="People" />
-            <NavItem icon={BarChart3} label="Reports" />
+            <NavItem icon={Home} label="Overview" active={activePage==='overview'} onClick={() => onNavigate('overview')} />
+            <NavItem icon={LayoutGrid} label="Board" active={activePage==='board'} onClick={() => onNavigate('board')} />
+            <NavItem icon={ListChecks} label="Backlog" active={activePage==='backlog'} onClick={() => onNavigate('backlog')} />
+            <NavItem icon={Users} label="People" active={activePage==='people'} onClick={() => onNavigate('people')} />
+            <NavItem icon={BarChart3} label="Reports" active={activePage==='reports'} onClick={() => onNavigate('reports')} />
           </nav>
         </div>
 
@@ -41,7 +42,7 @@ const Sidebar = () => {
         </div>
 
         <div className="mt-auto">
-          <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50">
+          <button onClick={() => onNavigate('settings')} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50">
             <Settings className="h-4 w-4" />
             Project settings
           </button>
