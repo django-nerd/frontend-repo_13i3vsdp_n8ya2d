@@ -1,87 +1,88 @@
-import React, { useMemo, useState } from 'react';
-import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import CreateIssueModal from './components/CreateIssueModal';
-import Overview from './components/pages/Overview';
-import Backlog from './components/pages/Backlog';
-import People from './components/pages/People';
-import Reports from './components/pages/Reports';
-import BoardView from './components/Board';
+import React, { useEffect, useMemo, useState } from 'react';
+import HeaderBar from './components/HeaderBar';
+import TaskList from './components/TaskList';
+import NewTaskModal from './components/NewTaskModal';
 
-const seedIssues = [
-  { id: 'ISSUE-101', title: 'User can sign in with email', assignee: 'Alex', points: 3, status: 'backlog', tag: 'Auth' },
-  { id: 'ISSUE-102', title: 'Design marketing landing page', assignee: 'Maya', points: 5, status: 'selected', tag: 'Design' },
-  { id: 'ISSUE-103', title: 'Implement Kanban board drag & drop', assignee: 'Chris', points: 8, status: 'inprogress', tag: 'Feature' },
-  { id: 'ISSUE-104', title: 'Fix 500 on /projects endpoint', assignee: 'Sam', points: 2, status: 'inprogress', tag: 'Bug' },
-  { id: 'ISSUE-105', title: 'Add analytics event tracking', assignee: 'Taylor', points: 3, status: 'done', tag: 'Analytics' },
-];
+const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 function App() {
-  const [openCreate, setOpenCreate] = useState(false);
-  const [openSettings, setOpenSettings] = useState(false);
-  const [activePage, setActivePage] = useState('board');
-  const [issues, setIssues] = useState(seedIssues);
-  const [search, setSearch] = useState('');
+  const [tasks, setTasks] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('');
 
-  const filteredIssues = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return issues;
-    return issues.filter(i =>
-      i.title.toLowerCase().includes(q) ||
-      i.id.toLowerCase().includes(q) ||
-      (i.assignee || '').toLowerCase().includes(q) ||
-      (i.tag || '').toLowerCase().includes(q)
-    );
-  }, [issues, search]);
-
-  const handleCreate = async (issue) => {
-    setIssues((prev) => [issue, ...prev]);
-  };
-
-  const handleMove = (id, status) => {
-    setIssues(prev => prev.map(i => i.id === id ? { ...i, status } : i));
-  };
-
-  const renderPage = () => {
-    switch (activePage) {
-      case 'overview':
-        return <Overview issues={filteredIssues} />;
-      case 'backlog':
-        return <Backlog issues={filteredIssues} onOpenCreate={() => setOpenCreate(true)} onMove={handleMove} />;
-      case 'people':
-        return <People issues={filteredIssues} />;
-      case 'reports':
-        return <Reports issues={filteredIssues} />;
-      case 'settings':
-        return (
-          <div className="p-4 sm:p-6 lg:p-8">
-            {/* Lazy import alternative could be used; to keep files simple reuse inline import */}
-            {React.createElement(require('./components/pages/Settings').default)}
-          </div>
-        );
-      default:
-        return <BoardView />;
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/tasks`);
+      const data = await res.json();
+      setTasks(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const createTask = async (payload) => {
+    const res = await fetch(`${API}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    setTasks((prev) => [data, ...prev]);
+  };
+
+  const updateTask = async (id, payload) => {
+    const res = await fetch(`${API}/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
+  };
+
+  const deleteTask = async (id) => {
+    await fetch(`${API}/api/tasks/${id}`, { method: 'DELETE' });
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tasks;
+    return tasks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.assignee || '').toLowerCase().includes(q) ||
+        (t.status || '').toLowerCase().includes(q)
+    );
+  }, [tasks, query]);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Header
-        onOpenCreate={() => setOpenCreate(true)}
-        onOpenSettings={() => setActivePage('settings')}
-        searchQuery={search}
-        onSearchChange={setSearch}
-      />
-      <div className="mx-auto max-w-7xl grid grid-cols-1 md:grid-cols-[16rem_1fr]">
-        <Sidebar activePage={activePage} onNavigate={setActivePage} />
-        <main className="min-h-[calc(100vh-4rem)]">{renderPage()}</main>
+    <div className="min-h-screen bg-slate-50">
+      <HeaderBar onCreate={() => setOpen(true)} onRefresh={fetchTasks} />
+
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <input
+            className="flex-1 h-10 rounded-md border border-slate-200 px-3 text-sm"
+            placeholder="Search tasks..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <span className="text-sm text-slate-500">{loading ? 'Loading…' : `${filtered.length} items`}</span>
+        </div>
+
+        <TaskList tasks={filtered} onUpdate={updateTask} onDelete={deleteTask} />
       </div>
 
-      <CreateIssueModal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-        onCreate={handleCreate}
-      />
+      <NewTaskModal open={open} onClose={() => setOpen(false)} onSubmit={createTask} />
     </div>
   );
 }
